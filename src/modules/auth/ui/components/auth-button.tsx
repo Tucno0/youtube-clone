@@ -1,12 +1,37 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { UserCircleIcon } from "lucide-react";
+import { ClapperboardIcon, UserCircleIcon } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export const AuthButton = () => {
+  const pathname = usePathname();
+
   return (
     <>
       <SignedIn>
-        <UserButton />
+        {pathname !== "/studio" && (
+          <Button asChild variant="secondary">
+            <Link href="/studio">
+              <ClapperboardIcon className="size-4" />
+              Studio
+            </Link>
+          </Button>
+        )}
+
+        <UserButton>
+          <UserButton.MenuItems>
+            <UserButton.Link
+              label="Studio"
+              href="/studio"
+              labelIcon={<ClapperboardIcon className="size-4" />}
+            />
+
+            <UserButton.Action label="manageAccount" />
+          </UserButton.MenuItems>
+        </UserButton>
       </SignedIn>
 
       <SignedOut>
