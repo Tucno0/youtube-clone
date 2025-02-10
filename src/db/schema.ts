@@ -49,6 +49,13 @@ export const videos = pgTable(
     description: text("description"),
     // url: text("url").notNull(),
 
+    muxStatus: text("mux_status").notNull(),
+    muxAssetId: text("mux_asset_id").unique(),
+    muxUploadId: text("mux_upload_id").unique(),
+    muxPlaybackId: text("mux_playback_id").unique(),
+    muxTrackId: text("mux_track_id").unique(),
+    muxTrackStatus: text("mux_track_status"),
+
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, {
@@ -61,11 +68,13 @@ export const videos = pgTable(
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  }
-  // (table) => [
-  //   uniqueIndex("title_idx").on(table.title),
-  //   uniqueIndex("url_idx").on(table.url),
-  // ]
+  },
+  (table) => [
+    uniqueIndex("mux_asset_id_idx").on(table.muxAssetId),
+    uniqueIndex("mux_upload_id_idx").on(table.muxUploadId),
+    uniqueIndex("mux_playback_id_idx").on(table.muxPlaybackId),
+    uniqueIndex("mux_track_id_idx").on(table.muxTrackId),
+  ]
 );
 
 export const videoRelations = relations(videos, ({ one }) => ({
