@@ -3,6 +3,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isProtectedRoute = createRouteMatcher([
   "/feed/subscriptions",
   "/playlists(/.*)?",
+  "/studio(/.*)?",
 ]);
 
 // This middleware will run for all routes that are not static files

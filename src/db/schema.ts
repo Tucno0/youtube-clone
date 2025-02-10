@@ -1,4 +1,4 @@
-import { table } from "console";
+import { relations } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -21,6 +21,10 @@ export const users = pgTable(
   (table) => [uniqueIndex("clerk_id_idx").on(table.clerkId)] // Add unique index on clerkId column
 );
 
+export const userRelations = relations(users, ({ many }) => ({
+  videos: many(videos),
+}));
+
 export const categories = pgTable(
   "categories",
   {
@@ -32,3 +36,45 @@ export const categories = pgTable(
   },
   (table) => [uniqueIndex("name_idx").on(table.name)]
 );
+
+export const categoryRelations = relations(categories, ({ many }) => ({
+  videos: many(videos),
+}));
+
+export const videos = pgTable(
+  "videos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description"),
+    // url: text("url").notNull(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    categoryId: uuid("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  }
+  // (table) => [
+  //   uniqueIndex("title_idx").on(table.title),
+  //   uniqueIndex("url_idx").on(table.url),
+  // ]
+);
+
+export const videoRelations = relations(videos, ({ one }) => ({
+  user: one(users, {
+    fields: [videos.userId],
+    references: [users.id],
+  }),
+  category: one(categories, {
+    fields: [videos.categoryId],
+    references: [categories.id],
+  }),
+}));

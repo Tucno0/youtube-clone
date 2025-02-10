@@ -1,0 +1,21 @@
+"use client";
+
+import { DEFAULT_LIMIT } from "@/constants";
+import { trpc } from "@/trpc/client";
+
+export const VideosSection = () => {
+  const [data] = trpc.studio.getMany.useSuspenseInfiniteQuery(
+    {
+      limit: DEFAULT_LIMIT,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  );
+
+  return (
+    <div>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+};
