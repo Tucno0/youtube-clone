@@ -1,9 +1,10 @@
 // Importaciones necesarias
 import { db } from "@/db"; // Importa la instancia de la base de datos
-import { videos } from "@/db/schema"; // Importa el esquema de videos
+import { videos, videoUpdateSchema } from "@/db/schema"; // Importa el esquema de videos
 import { mux } from "@/lib/mux";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init"; // Importa utilidades de tRPC
-// import { TRPCError } from "@trpc/server";
+import { TRPCError } from "@trpc/server";
+import { and, eq } from "drizzle-orm";
 
 // Creación del router de studio con tRPC
 export const videosRouter = createTRPCRouter({
@@ -50,4 +51,43 @@ export const videosRouter = createTRPCRouter({
       url: upload.url, // URL de subida de Mux
     };
   }),
+
+  update: protectedProcedure
+    .input(videoUpdateSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      if (!input.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Video ID is required",
+        });
+      }
+
+      const [updatedVideo] = await db
+        .update(videos)
+        .set({
+          title: input.title,
+          description: input.description,
+          categoryId: input.categoryId,
+          visibility: input.visibility,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(videos.id, input.id),
+            eq(videos.userId, userId) // Filtrar por ID y usuario
+          )
+        )
+        .returning();
+
+      if (!updatedVideo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Video not found",
+        });
+      }
+
+      return updatedVideo;
+    }),
 });
