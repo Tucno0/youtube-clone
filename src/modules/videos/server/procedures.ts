@@ -5,6 +5,8 @@ import { mux } from "@/lib/mux";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init"; // Importa utilidades de tRPC
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
+import { UTApi } from "uploadthing/server";
+import { z } from "zod";
 
 // Creación del router de studio con tRPC
 export const videosRouter = createTRPCRouter({
@@ -87,6 +89,109 @@ export const videosRouter = createTRPCRouter({
           message: "Video not found",
         });
       }
+
+      return updatedVideo;
+    }),
+
+  remove: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const [removedVideo] = await db
+        .delete(videos)
+        .where(
+          and(
+            eq(videos.id, input.id),
+            eq(videos.userId, userId) // Filtrar por ID y usuario
+          )
+        )
+        .returning();
+
+      if (!removedVideo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Video not found",
+        });
+      }
+
+      return removedVideo;
+    }),
+
+  restoreThumbnail: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const [existingVideo] = await db
+        .select()
+        .from(videos)
+        .where(
+          and(
+            eq(videos.id, input.id),
+            eq(videos.userId, userId) // Filtrar por ID y usuario
+          )
+        );
+
+      if (!existingVideo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Video not found",
+        });
+      }
+
+      if (existingVideo.thumbnailKey) {
+        const utaApi = new UTApi();
+        utaApi.uploadFilesFromUrl(existingVideo.thumbnailKey);
+
+        await utaApi.deleteFiles(existingVideo.thumbnailKey);
+
+        await db
+          .update(videos)
+          .set({
+            thumbnailUrl: null,
+            thumbnailKey: null,
+          })
+          .where(and(eq(videos.id, input.id), eq(videos.userId, userId)));
+      }
+
+      if (!existingVideo.muxPlaybackId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Video does not have a playback ID",
+        });
+      }
+
+      const utapi = new UTApi();
+
+      const tempThumbnailUrl = `https://image.mux.com/${existingVideo.muxPlaybackId}/thumbnail.jpg`;
+      const uploadedThumbnail = await utapi.uploadFilesFromUrl(
+        tempThumbnailUrl
+      );
+
+      if (!uploadedThumbnail.data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to upload thumbnail",
+        });
+      }
+
+      const { key: thumbnailKey, ufsUrl: thumbnailUrl } =
+        uploadedThumbnail.data;
+
+      const [updatedVideo] = await db
+        .update(videos)
+        .set({
+          thumbnailUrl,
+          thumbnailKey,
+        })
+        .where(
+          and(
+            eq(videos.id, input.id),
+            eq(videos.userId, userId) // Filtrar por ID y usuario
+          )
+        )
+        .returning();
 
       return updatedVideo;
     }),
