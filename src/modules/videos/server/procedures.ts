@@ -1,16 +1,22 @@
 // Importaciones necesarias
 import { db } from "@/db"; // Importa la instancia de la base de datos
-import { videos, videoUpdateSchema } from "@/db/schema"; // Importa el esquema de videos
+import { users, videos, videoUpdateSchema } from "@/db/schema"; // Importa el esquema de videos
 import { mux } from "@/lib/mux";
 import { workflow } from "@/lib/workflow";
-import { createTRPCRouter, protectedProcedure } from "@/trpc/init"; // Importa utilidades de tRPC
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from "@/trpc/init"; // Importa utilidades de tRPC
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, getTableColumns } from "drizzle-orm";
 import { UTApi } from "uploadthing/server";
 import { z } from "zod";
 
 // Creación del router de studio con tRPC
 export const videosRouter = createTRPCRouter({
+  //* Protected procedures
+  // Crear un nuevo video
   create: protectedProcedure.mutation(async ({ ctx }) => {
     const { id: userId } = ctx.user; // ID del usuario autenticado
 
@@ -55,7 +61,7 @@ export const videosRouter = createTRPCRouter({
     };
   }),
 
-  update: protectedProcedure
+  update: protectedProcedure // Actualizar un video
     .input(videoUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
@@ -94,7 +100,7 @@ export const videosRouter = createTRPCRouter({
       return updatedVideo;
     }),
 
-  remove: protectedProcedure
+  remove: protectedProcedure // Eliminar un video
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
@@ -119,7 +125,7 @@ export const videosRouter = createTRPCRouter({
       return removedVideo;
     }),
 
-  restoreThumbnail: protectedProcedure
+  restoreThumbnail: protectedProcedure // Restaurar miniatura de video al original de Mux
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
@@ -197,7 +203,7 @@ export const videosRouter = createTRPCRouter({
       return updatedVideo;
     }),
 
-  generateThumbnail: protectedProcedure
+  generateThumbnail: protectedProcedure // Generar miniatura de video con IA
     .input(
       z.object({
         id: z.string().uuid(),
@@ -216,7 +222,7 @@ export const videosRouter = createTRPCRouter({
       return workflowRunId;
     }),
 
-  generateTitle: protectedProcedure
+  generateTitle: protectedProcedure // Generar título de video con IA
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
@@ -230,7 +236,7 @@ export const videosRouter = createTRPCRouter({
       return workflowRunId;
     }),
 
-  generateDescription: protectedProcedure
+  generateDescription: protectedProcedure // Generar descripción de video con IA
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
@@ -242,5 +248,30 @@ export const videosRouter = createTRPCRouter({
       });
 
       return workflowRunId;
+    }),
+
+  //* Public procedures
+  getOne: baseProcedure // Obtener un video por ID
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const [existingVideo] = await db
+        .select({
+          ...getTableColumns(videos),
+          user: {
+            ...getTableColumns(users),
+          },
+        })
+        .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id))
+        .where(eq(videos.id, input.id));
+
+      if (!existingVideo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Video not found",
+        });
+      }
+
+      return existingVideo;
     }),
 });
