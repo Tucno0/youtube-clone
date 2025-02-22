@@ -14,14 +14,14 @@ export const VideoTopRow = ({ video }: VideoTopRowProps) => {
   const conpactViews = useMemo(() => {
     return Intl.NumberFormat("en-US", {
       notation: "compact",
-    }).format(1231646);
-  }, []);
+    }).format(video.viewCount);
+  }, [video.viewCount]);
 
   const expandedViews = useMemo(() => {
     return Intl.NumberFormat("en", {
       notation: "standard",
-    }).format(1231646);
-  }, []);
+    }).format(video.viewCount);
+  }, [video.viewCount]);
 
   const compactDate = useMemo(() => {
     return formatDistanceToNow(video.createdAt, {

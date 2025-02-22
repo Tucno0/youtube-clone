@@ -1,6 +1,6 @@
 // Importaciones necesarias
 import { db } from "@/db"; // Importa la instancia de la base de datos
-import { users, videos, videoUpdateSchema } from "@/db/schema"; // Importa el esquema de videos
+import { users, videos, videoUpdateSchema, videoViews } from "@/db/schema"; // Importa el esquema de videos
 import { mux } from "@/lib/mux";
 import { workflow } from "@/lib/workflow";
 import {
@@ -256,10 +256,11 @@ export const videosRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const [existingVideo] = await db
         .select({
-          ...getTableColumns(videos),
+          ...getTableColumns(videos), // Obtener columnas de la tabla de videos
           user: {
-            ...getTableColumns(users),
+            ...getTableColumns(users), // Obtener columnas de la tabla de usuarios
           },
+          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // Contar vistas del video
         })
         .from(videos)
         .innerJoin(users, eq(videos.userId, users.id))
