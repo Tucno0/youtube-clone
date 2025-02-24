@@ -16,6 +16,7 @@ import {
   createSelectSchema,
 } from "drizzle-zod";
 
+//* ================= Users =================
 export const users = pgTable(
   "users",
   {
@@ -33,8 +34,10 @@ export const users = pgTable(
 export const userRelations = relations(users, ({ many }) => ({
   videos: many(videos),
   videoViews: many(videoViews),
+  videoReactions: many(videoReactions),
 }));
 
+//* ================= Categories =================
 export const categories = pgTable(
   "categories",
   {
@@ -51,6 +54,7 @@ export const categoryRelations = relations(categories, ({ many }) => ({
   videos: many(videos),
 }));
 
+//* ================= Videos =================
 export const videoVisibility = pgEnum("video_visibility", [
   "public",
   "private",
@@ -116,8 +120,10 @@ export const videoRelations = relations(videos, ({ one, many }) => ({
     references: [categories.id],
   }),
   views: many(videoViews), // Define one-to-many relation with video_views table
+  reactions: many(videoReactions), // Define one-to-many relation with video_reactions table
 }));
 
+//* ================= Video Views =================
 export const videoViews = pgTable(
   "video_views",
   {
@@ -152,3 +158,42 @@ export const videoViewRelations = relations(videoViews, ({ one }) => ({
 export const videoViewSelectSchema = createSelectSchema(videoViews);
 export const videoViewInsertSchema = createInsertSchema(videoViews);
 export const videoViewUpdateSchema = createUpdateSchema(videoViews);
+
+//* ================= Video Reactions =================
+export const reactionType = pgEnum("reaction_type", ["like", "dislike"]);
+
+export const videoReactions = pgTable(
+  "video_reactions",
+  {
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    videoId: uuid("video_id")
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    type: reactionType("type").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "video_reactions_pk",
+      columns: [table.userId, table.videoId],
+    }),
+  ]
+);
+
+export const videoReactionRelations = relations(videoReactions, ({ one }) => ({
+  users: one(users, {
+    fields: [videoReactions.userId],
+    references: [users.id],
+  }),
+  videos: one(videos, {
+    fields: [videoReactions.videoId],
+    references: [videos.id],
+  }),
+}));
+
+export const videoReactionSelectSchema = createSelectSchema(videoReactions);
+export const videoReactionInsertSchema = createInsertSchema(videoReactions);
+export const videoReactionUpdateSchema = createUpdateSchema(videoReactions);
