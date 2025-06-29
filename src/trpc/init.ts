@@ -1,14 +1,14 @@
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { ratelimit } from "@/lib/ratelimit";
-import { auth } from "@clerk/nextjs/server";
-import { initTRPC, TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
-import { cache } from "react";
+import { db } from '@/db';
+import { users } from '@/db/schema';
+import { ratelimit } from '@/lib/ratelimit';
+import { auth } from '@clerk/nextjs/server';
+import { initTRPC, TRPCError } from '@trpc/server';
+import { eq } from 'drizzle-orm';
+import { cache } from 'react';
 
 // superjson es una librería que permite serializar y deserializar datos de forma segura.
 // En este caso, se utiliza para serializar y deserializar datos en el servidor.
-import superjson from "superjson";
+import superjson from 'superjson';
 
 export const createTRPCContext = cache(async () => {
   const { userId } = await auth();
@@ -40,7 +40,7 @@ export const protectedProcedure = t.procedure.use(async function isAuth(opts) {
   const { ctx } = opts;
 
   if (!ctx.clerkUserId) {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
 
   const [user] = await db
@@ -50,13 +50,13 @@ export const protectedProcedure = t.procedure.use(async function isAuth(opts) {
     .limit(1);
 
   if (!user) {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
 
   const { success } = await ratelimit.limit(user.id);
 
   if (!success) {
-    throw new TRPCError({ code: "TOO_MANY_REQUESTS" });
+    throw new TRPCError({ code: 'TOO_MANY_REQUESTS' });
   }
 
   return opts.next({
