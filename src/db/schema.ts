@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations } from 'drizzle-orm';
 import {
   integer,
   pgEnum,
@@ -8,46 +8,90 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "drizzle-orm/pg-core";
+} from 'drizzle-orm/pg-core';
 
 import {
   createInsertSchema,
   createUpdateSchema,
   createSelectSchema,
-} from "drizzle-zod";
+} from 'drizzle-zod';
 
 //* ================= Users =================
 export const users = pgTable(
-  "users",
+  'users',
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    clerkId: text("clerk_id").unique().notNull(),
-    name: text("name").notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    clerkId: text('clerk_id').unique().notNull(),
+    name: text('name').notNull(),
 
-    imageUrl: text("image_url").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    imageUrl: text('image_url').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("clerk_id_idx").on(table.clerkId)] // Add unique index on clerkId column
+  (table) => [uniqueIndex('clerk_id_idx').on(table.clerkId)] // Add unique index on clerkId column
 );
 
 export const userRelations = relations(users, ({ many }) => ({
   videos: many(videos),
   videoViews: many(videoViews),
   videoReactions: many(videoReactions),
+  subscriptions: many(subscriptions, {
+    relationName: 'subscriptions_viewer_id_fkey',
+  }),
+  subscribers: many(subscriptions, {
+    relationName: 'subscriptions_creator_id_fkey',
+  }),
+}));
+
+//* ================= Subscriptions ====================
+export const subscriptions = pgTable(
+  'subscriptions',
+  {
+    viewerId: uuid('viewer_id')
+      .references(() => users.id, {
+        onDelete: 'cascade',
+      })
+      .notNull(),
+    creatorId: uuid('creator_id')
+      .references(() => users.id, {
+        onDelete: 'cascade',
+      })
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: 'subscriptions_pk',
+      columns: [table.viewerId, table.creatorId],
+    }),
+  ]
+);
+
+export const subscriptionRelations = relations(subscriptions, ({ one }) => ({
+  viewerId: one(users, {
+    fields: [subscriptions.viewerId],
+    references: [users.id],
+    relationName: 'subscriptions_viewer_id_fkey',
+  }),
+  creatorId: one(users, {
+    fields: [subscriptions.creatorId],
+    references: [users.id],
+    relationName: 'subscriptions_creator_id_fkey',
+  }),
 }));
 
 //* ================= Categories =================
 export const categories = pgTable(
-  "categories",
+  'categories',
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").notNull(),
-    description: text("description"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("name_idx").on(table.name)]
+  (table) => [uniqueIndex('name_idx').on(table.name)]
 );
 
 export const categoryRelations = relations(categories, ({ many }) => ({
@@ -55,52 +99,52 @@ export const categoryRelations = relations(categories, ({ many }) => ({
 }));
 
 //* ================= Videos =================
-export const videoVisibility = pgEnum("video_visibility", [
-  "public",
-  "private",
+export const videoVisibility = pgEnum('video_visibility', [
+  'public',
+  'private',
 ]);
 
 export const videos = pgTable(
-  "videos",
+  'videos',
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    title: text("title").notNull(),
-    description: text("description"),
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    description: text('description'),
     // url: text("url").notNull(),
 
-    muxStatus: text("mux_status").notNull(),
-    muxAssetId: text("mux_asset_id").unique(),
-    muxUploadId: text("mux_upload_id").unique(),
-    muxPlaybackId: text("mux_playback_id").unique(),
-    muxTrackId: text("mux_track_id").unique(),
-    muxTrackStatus: text("mux_track_status"),
+    muxStatus: text('mux_status').notNull(),
+    muxAssetId: text('mux_asset_id').unique(),
+    muxUploadId: text('mux_upload_id').unique(),
+    muxPlaybackId: text('mux_playback_id').unique(),
+    muxTrackId: text('mux_track_id').unique(),
+    muxTrackStatus: text('mux_track_status'),
 
-    thumbnailUrl: text("thumbnail_url"),
-    thumbnailKey: text("thumbnail_key"),
-    previewUrl: text("preview_url"),
-    previewKey: text("preview_key"),
+    thumbnailUrl: text('thumbnail_url'),
+    thumbnailKey: text('thumbnail_key'),
+    previewUrl: text('preview_url'),
+    previewKey: text('preview_key'),
 
-    duration: integer("duration").default(0).notNull(),
-    visibility: videoVisibility("visibility").default("private").notNull(),
+    duration: integer('duration').default(0).notNull(),
+    visibility: videoVisibility('visibility').default('private').notNull(),
 
-    userId: uuid("user_id")
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, {
-        onDelete: "cascade",
+        onDelete: 'cascade',
       }),
 
-    categoryId: uuid("category_id").references(() => categories.id, {
-      onDelete: "set null",
+    categoryId: uuid('category_id').references(() => categories.id, {
+      onDelete: 'set null',
     }),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("mux_asset_id_idx").on(table.muxAssetId),
-    uniqueIndex("mux_upload_id_idx").on(table.muxUploadId),
-    uniqueIndex("mux_playback_id_idx").on(table.muxPlaybackId),
-    uniqueIndex("mux_track_id_idx").on(table.muxTrackId),
+    uniqueIndex('mux_asset_id_idx').on(table.muxAssetId),
+    uniqueIndex('mux_upload_id_idx').on(table.muxUploadId),
+    uniqueIndex('mux_playback_id_idx').on(table.muxPlaybackId),
+    uniqueIndex('mux_track_id_idx').on(table.muxTrackId),
   ]
 );
 
@@ -125,20 +169,20 @@ export const videoRelations = relations(videos, ({ one, many }) => ({
 
 //* ================= Video Views =================
 export const videoViews = pgTable(
-  "video_views",
+  'video_views',
   {
-    userId: uuid("user_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    videoId: uuid("video_id")
-      .references(() => videos.id, { onDelete: "cascade" })
+    videoId: uuid('video_id')
+      .references(() => videos.id, { onDelete: 'cascade' })
       .notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
     primaryKey({
-      name: "video_views_pk",
+      name: 'video_views_pk',
       columns: [table.userId, table.videoId],
     }),
   ]
@@ -160,24 +204,24 @@ export const videoViewInsertSchema = createInsertSchema(videoViews);
 export const videoViewUpdateSchema = createUpdateSchema(videoViews);
 
 //* ================= Video Reactions =================
-export const reactionType = pgEnum("reaction_type", ["like", "dislike"]);
+export const reactionType = pgEnum('reaction_type', ['like', 'dislike']);
 
 export const videoReactions = pgTable(
-  "video_reactions",
+  'video_reactions',
   {
-    userId: uuid("user_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    videoId: uuid("video_id")
-      .references(() => videos.id, { onDelete: "cascade" })
+    videoId: uuid('video_id')
+      .references(() => videos.id, { onDelete: 'cascade' })
       .notNull(),
-    type: reactionType("type").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    type: reactionType('type').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
     primaryKey({
-      name: "video_reactions_pk",
+      name: 'video_reactions_pk',
       columns: [table.userId, table.videoId],
     }),
   ]

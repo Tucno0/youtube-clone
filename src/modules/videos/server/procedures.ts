@@ -1,23 +1,24 @@
 // Importaciones necesarias
-import { db } from "@/db"; // Importa la instancia de la base de datos
+import { db } from '@/db'; // Importa la instancia de la base de datos
 import {
+  subscriptions,
   users,
   videoReactions,
   videos,
   videoUpdateSchema,
   videoViews,
-} from "@/db/schema"; // Importa el esquema de videos
-import { mux } from "@/lib/mux";
-import { workflow } from "@/lib/workflow";
+} from '@/db/schema'; // Importa el esquema de videos
+import { mux } from '@/lib/mux';
+import { workflow } from '@/lib/workflow';
 import {
   baseProcedure,
   createTRPCRouter,
   protectedProcedure,
-} from "@/trpc/init"; // Importa utilidades de tRPC
-import { TRPCError } from "@trpc/server";
-import { and, eq, getTableColumns, inArray } from "drizzle-orm";
-import { UTApi } from "uploadthing/server";
-import { z } from "zod";
+} from '@/trpc/init'; // Importa utilidades de tRPC
+import { TRPCError } from '@trpc/server';
+import { and, eq, getTableColumns, inArray, isNotNull } from 'drizzle-orm';
+import { UTApi } from 'uploadthing/server';
+import { z } from 'zod';
 
 // Creación del router de studio con tRPC
 export const videosRouter = createTRPCRouter({
@@ -35,19 +36,19 @@ export const videosRouter = createTRPCRouter({
     const upload = await mux.video.uploads.create({
       new_asset_settings: {
         passthrough: userId,
-        playback_policy: ["public"],
+        playback_policy: ['public'],
         input: [
           {
             generated_subtitles: [
               {
-                language_code: "en",
-                name: "English",
+                language_code: 'en',
+                name: 'English',
               },
             ],
           },
         ],
       },
-      cors_origin: "*", // En producción, esto debería ser la URL de la aplicación
+      cors_origin: '*', // En producción, esto debería ser la URL de la aplicación
     });
 
     const [video] = await db
@@ -55,8 +56,8 @@ export const videosRouter = createTRPCRouter({
       .values({
         // Valores del nuevo video
         userId,
-        title: "Untitled",
-        muxStatus: "waiting",
+        title: 'Untitled',
+        muxStatus: 'waiting',
         muxUploadId: upload.id, // ID de subida de Mux
       })
       .returning(); // Insertar un nuevo video
@@ -74,8 +75,8 @@ export const videosRouter = createTRPCRouter({
 
       if (!input.id) {
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Video ID is required",
+          code: 'BAD_REQUEST',
+          message: 'Video ID is required',
         });
       }
 
@@ -98,8 +99,8 @@ export const videosRouter = createTRPCRouter({
 
       if (!updatedVideo) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found",
+          code: 'NOT_FOUND',
+          message: 'Video not found',
         });
       }
 
@@ -123,8 +124,8 @@ export const videosRouter = createTRPCRouter({
 
       if (!removedVideo) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found",
+          code: 'NOT_FOUND',
+          message: 'Video not found',
         });
       }
 
@@ -148,8 +149,8 @@ export const videosRouter = createTRPCRouter({
 
       if (!existingVideo) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found",
+          code: 'NOT_FOUND',
+          message: 'Video not found',
         });
       }
 
@@ -170,8 +171,8 @@ export const videosRouter = createTRPCRouter({
 
       if (!existingVideo.muxPlaybackId) {
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Video does not have a playback ID",
+          code: 'BAD_REQUEST',
+          message: 'Video does not have a playback ID',
         });
       }
 
@@ -184,8 +185,8 @@ export const videosRouter = createTRPCRouter({
 
       if (!uploadedThumbnail.data) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to upload thumbnail",
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to upload thumbnail',
         });
       }
 
@@ -273,7 +274,8 @@ export const videosRouter = createTRPCRouter({
         userId = user.id;
       }
 
-      const viewerReactions = db.$with("viewer_reactions").as(
+      // Common table expresions
+      const viewerReactions = db.$with('viewer_reactions').as(
         db
           .select({
             videoId: videoReactions.videoId,
@@ -283,26 +285,40 @@ export const videosRouter = createTRPCRouter({
           .where(inArray(videoReactions.userId, userId ? [userId] : []))
       );
 
+      const viewerSubscriptions = db.$with('viewer_subscriptions').as(
+        db
+          .select()
+          .from(subscriptions)
+          .where(inArray(subscriptions.viewerId, userId ? [userId] : []))
+      );
+
       const [existingVideo] = await db
-        .with(viewerReactions)
+        .with(viewerReactions, viewerSubscriptions)
         .select({
           ...getTableColumns(videos), // Obtener columnas de la tabla de videos
           user: {
             ...getTableColumns(users), // Obtener columnas de la tabla de usuarios
+            subscriberCount: db.$count(
+              subscriptions,
+              eq(subscriptions.creatorId, users.id)
+            ), // Contar suscriptores del creador
+            viewerSubscribed: isNotNull(viewerSubscriptions.viewerId).mapWith(
+              Boolean
+            ), // Ver si el usuario está suscrito al creador
           },
           viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // Contar vistas del video
           likeCount: db.$count(
             videoReactions,
             and(
               eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like")
+              eq(videoReactions.type, 'like')
             )
           ), // Contar likes del video
           dislikeCount: db.$count(
             videoReactions,
             and(
               eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike")
+              eq(videoReactions.type, 'dislike')
             )
           ), // Contar dislikes del video
           viewerReaction: viewerReactions.type, // Reacción del usuario
@@ -310,14 +326,18 @@ export const videosRouter = createTRPCRouter({
         .from(videos)
         .innerJoin(users, eq(videos.userId, users.id))
         .leftJoin(viewerReactions, eq(viewerReactions.videoId, videos.id))
+        .leftJoin(
+          viewerSubscriptions,
+          eq(viewerSubscriptions.creatorId, users.id)
+        )
         .where(eq(videos.id, input.id));
       // .groupBy(videos.id, users.id, viewerReactions.type);
       // .limit(1);
 
       if (!existingVideo) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found",
+          code: 'NOT_FOUND',
+          message: 'Video not found',
         });
       }
 

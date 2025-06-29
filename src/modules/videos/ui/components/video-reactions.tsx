@@ -1,17 +1,17 @@
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
-import { VideoGetOneOutput } from "../../types";
-import { useClerk } from "@clerk/nextjs";
-import { trpc } from "@/trpc/client";
-import { toast } from "sonner";
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react';
+import { VideoGetOneOutput } from '../../types';
+import { useClerk } from '@clerk/nextjs';
+import { trpc } from '@/trpc/client';
+import { toast } from 'sonner';
 
 interface VideoReactionsProps {
   videoId: string;
   likes: number;
   dislikes: number;
-  viewerReaction: VideoGetOneOutput["viewerReaction"];
+  viewerReaction: VideoGetOneOutput['viewerReaction'];
 }
 
 export const VideoReactions = ({
@@ -26,11 +26,12 @@ export const VideoReactions = ({
   const like = trpc.videoReactions.like.useMutation({
     onSuccess: () => {
       utils.videos.getOne.invalidate({ id: videoId });
+      // TODO: Invalidate "liked" playlist
     },
     onError: (error) => {
-      toast.error("Something went wrong");
+      toast.error('Something went wrong');
 
-      if (error.data?.code === "UNAUTHORIZED") {
+      if (error.data?.code === 'UNAUTHORIZED') {
         clerk.openSignIn();
       }
     },
@@ -41,9 +42,9 @@ export const VideoReactions = ({
       utils.videos.getOne.invalidate({ id: videoId });
     },
     onError: (error) => {
-      toast.error("Something went wrong");
+      toast.error('Something went wrong');
 
-      if (error.data?.code === "UNAUTHORIZED") {
+      if (error.data?.code === 'UNAUTHORIZED') {
         clerk.openSignIn();
       }
     },
@@ -52,13 +53,13 @@ export const VideoReactions = ({
   return (
     <div className="flex items-center flex-none">
       <Button
-        variant={"secondary"}
+        variant={'secondary'}
         className="rounded-l-full rounded-r-none gap-2 pr-4"
         onClick={() => like.mutate({ videoId })}
         disabled={like.isPending || dislike.isPending}
       >
         <ThumbsUpIcon
-          className={cn("size-5", viewerReaction === "like" && "fill-black")}
+          className={cn('size-5', viewerReaction === 'like' && 'fill-black')}
         />
         {likes}
       </Button>
@@ -66,13 +67,13 @@ export const VideoReactions = ({
       <Separator orientation="vertical" className="h-7" />
 
       <Button
-        variant={"secondary"}
+        variant={'secondary'}
         className="rounded-l-none rounded-r-full pl-3"
         onClick={() => dislike.mutate({ videoId })}
         disabled={like.isPending || dislike.isPending}
       >
         <ThumbsDownIcon
-          className={cn("size-5", viewerReaction === "dislike" && "fill-black")}
+          className={cn('size-5', viewerReaction === 'dislike' && 'fill-black')}
         />
         {dislikes}
       </Button>
