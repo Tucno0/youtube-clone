@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/trpc/client";
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import { VideoPlayer } from "../components/video-player";
+import { VideoPlayer, VideoPlayerSkeleton } from "../components/video-player";
 import { VideoBanner } from "../components/video-banner";
-import { VideoTopRow } from "../components/video-top-row";
+import { VideoTopRow, VideoTopRowSkeleton } from "../components/video-top-row";
 import { useAuth } from "@clerk/nextjs";
 
 interface VideoSectionProps {
@@ -15,7 +15,8 @@ interface VideoSectionProps {
 
 export const VideoSection = ({ videoId }: VideoSectionProps) => {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<VideoSectionSkeleton />}>
+      {/* ErrorBoundary is used to catch errors in the video section */}
       <ErrorBoundary fallback={<div>Something went wrong</div>}>
         <VideoSectionSuspense videoId={videoId} />
       </ErrorBoundary>
@@ -60,6 +61,15 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
       <VideoBanner status={video.muxStatus} />
 
       <VideoTopRow video={video} />
+    </>
+  );
+};
+
+export const VideoSectionSkeleton = () => {
+  return (
+    <>
+      <VideoPlayerSkeleton />
+      <VideoTopRowSkeleton />
     </>
   );
 };
