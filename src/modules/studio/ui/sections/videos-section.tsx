@@ -7,7 +7,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { format } from "date-fns";
 
 import { VideoThumbnail } from "@/modules/videos/ui/components/video-thumbnail";
-import { InfiteScroll } from "@/components/infinite-scroll";
+import { InfiniteScroll } from "@/components/infinite-scroll";
 import {
   Table,
   TableBody,
@@ -184,7 +184,7 @@ export const VideosSectionSuspense = () => {
         </Table>
       </div>
 
-      <InfiteScroll
+      <InfiniteScroll
         isManual
         hasNextPage={query.hasNextPage}
         isFetchingNextPage={query.isFetchingNextPage}
