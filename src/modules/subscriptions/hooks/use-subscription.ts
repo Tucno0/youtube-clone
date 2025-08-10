@@ -1,6 +1,6 @@
-import { trpc } from '@/trpc/client';
-import { useClerk } from '@clerk/nextjs';
-import { toast } from 'sonner';
+import { trpc } from "@/trpc/client";
+import { useClerk } from "@clerk/nextjs";
+import { toast } from "sonner";
 
 interface UseSubscriptionProps {
   userId: string;
@@ -18,7 +18,7 @@ export const useSubscription = ({
 
   const subscribe = trpc.subscriptions.create.useMutation({
     onSuccess: () => {
-      toast.success('Subscribed');
+      toast.success("Subscribed");
       // TODO: reinvalidate subscription.getMany, users.getOne
 
       if (fromVideoId) {
@@ -26,9 +26,9 @@ export const useSubscription = ({
       }
     },
     onError: (error) => {
-      toast.error('Something went wrong');
+      toast.error("Something went wrong");
 
-      if (error.data?.code === 'UNAUTHORIZED') {
+      if (error.data?.code === "UNAUTHORIZED") {
         clerk.openSignIn();
       }
     },
@@ -36,7 +36,7 @@ export const useSubscription = ({
 
   const unsubscribe = trpc.subscriptions.remove.useMutation({
     onSuccess: () => {
-      toast.success('Unsubscribed');
+      toast.success("Unsubscribed");
       // TODO: reinvalidate subscription.getMany, users.getOne
 
       if (fromVideoId) {
@@ -44,9 +44,9 @@ export const useSubscription = ({
       }
     },
     onError: (error) => {
-      toast.error('Something went wrong');
+      toast.error("Something went wrong");
 
-      if (error.data?.code === 'UNAUTHORIZED') {
+      if (error.data?.code === "UNAUTHORIZED") {
         clerk.openSignIn();
       }
     },
