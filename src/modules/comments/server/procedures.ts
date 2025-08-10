@@ -5,6 +5,8 @@ import {
   eq,
   getTableColumns,
   inArray,
+  isNotNull,
+  isNull,
   lt,
   or,
 } from "drizzle-orm";
@@ -23,19 +25,42 @@ export const commentsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(
       z.object({
+        parentId: z.string().uuid().nullish(),
         videoId: z.string().uuid(),
         value: z.string().min(1).max(500),
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { videoId, value } = input;
+      const { videoId, value, parentId } = input;
       const { id: userId } = ctx.user;
+
+      const [existingComment] = await db
+        .select()
+        .from(comments)
+        .where(inArray(comments.id, parentId ? [parentId] : []));
+
+      // Si hay parentId, verificar que exista el comentario padre
+      if (parentId && !existingComment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Parent comment not found",
+        });
+      }
+
+      // Si existe el comentario padre y es un comentario de nivel superior y tiene un padre, no se puede responder
+      if (existingComment && parentId && existingComment.parentId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cannot reply to a top-level comment",
+        });
+      }
 
       const [createdComment] = await db
         .insert(comments)
         .values({
           userId,
           videoId,
+          parentId,
           value,
         })
         .returning();
@@ -47,6 +72,7 @@ export const commentsRouter = createTRPCRouter({
     .input(
       z.object({
         videoId: z.string().uuid(),
+        parentId: z.string().uuid().nullish(),
         cursor: z
           .object({
             id: z.string().uuid(),
@@ -58,7 +84,7 @@ export const commentsRouter = createTRPCRouter({
     )
     .query(async ({ input, ctx }) => {
       const { clerkUserId } = ctx;
-      const { videoId, cursor, limit } = input;
+      const { videoId, parentId, cursor, limit } = input;
 
       let userId;
 
@@ -81,18 +107,30 @@ export const commentsRouter = createTRPCRouter({
           .where(inArray(commentReactions.userId, userId ? [userId] : []))
       );
 
+      const replies = db.$with("replies").as(
+        db
+          .select({
+            parentId: comments.parentId,
+            count: count(comments.id).as("count"),
+          })
+          .from(comments)
+          .where(isNotNull(comments.parentId))
+          .groupBy(comments.parentId)
+      );
+
       const [totalData, data] = await Promise.all([
         await db
           .select({ count: count() })
           .from(comments)
-          .where(eq(comments.videoId, videoId)),
+          .where(and(eq(comments.videoId, videoId), isNull(comments.parentId))),
 
         await db
-          .with(viewerReactions)
+          .with(viewerReactions, replies)
           .select({
             ...getTableColumns(comments),
             user: getTableColumns(users),
             viewerReaction: viewerReactions.type,
+            replyCount: replies.count,
             likeCount: db.$count(
               commentReactions,
               and(
@@ -112,6 +150,9 @@ export const commentsRouter = createTRPCRouter({
           .where(
             and(
               eq(comments.videoId, videoId),
+              parentId
+                ? eq(comments.parentId, parentId)
+                : isNull(comments.parentId), // Si hay parentId, filtrar por él, sino solo comentarios de nivel superior
               cursor
                 ? or(
                     // Si hay cursor, aplicar lógica de paginación
@@ -126,6 +167,7 @@ export const commentsRouter = createTRPCRouter({
           )
           .innerJoin(users, eq(comments.userId, users.id))
           .leftJoin(viewerReactions, eq(comments.id, viewerReactions.commentId)) // Unir con las reacciones del espectador
+          .leftJoin(replies, eq(comments.id, replies.parentId)) // Unir con el conteo de respuestas
           .orderBy(desc(comments.updatedAt), desc(comments.id)) // Ordenar por fecha de actualización y ID descendente
           .limit(limit + 1), // +1 para determinar si hay más páginas
       ]);
