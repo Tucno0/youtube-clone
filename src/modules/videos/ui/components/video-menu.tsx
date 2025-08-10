@@ -19,9 +19,10 @@ interface VideoMenuProps {
   onRemove?: () => void;
 }
 
+// TODO: implement whats left
 export const VideoMenu = ({
   videoId,
-  variant = "secondary",
+  variant = "ghost",
   onRemove,
 }: VideoMenuProps) => {
   const onShare = () => {
@@ -36,7 +37,7 @@ export const VideoMenu = ({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant={variant} size={"icon"} className="rounded-full">
           <MoreVerticalIcon />
