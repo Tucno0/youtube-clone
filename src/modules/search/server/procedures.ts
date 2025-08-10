@@ -2,18 +2,18 @@
 import { db } from "@/db"; // Importa la instancia de la base de datos
 import { users, videoReactions, videos, videoViews } from "@/db/schema"; // Importa el esquema de videos
 import { baseProcedure, createTRPCRouter } from "@/trpc/init"; // Importa utilidades de tRPC
-import { TRPCError } from "@trpc/server";
-import { eq, and, or, lt, desc, getTableColumns, not } from "drizzle-orm"; // Operadores de consulta de DrizzleORM
+import { eq, and, or, lt, desc, ilike, getTableColumns } from "drizzle-orm"; // Operadores de consulta de DrizzleORM
 import { z } from "zod"; // Librería para validación de esquemas
 
-// Creación del router de sugerencias con tRPC
-export const suggestionsRouter = createTRPCRouter({
-  // Definición del procedimiento 'getMany' que obtiene múltiples sugerencias
-  getMany: baseProcedure
+// Creación del router de búsqueda con tRPC
+export const searchRouter = createTRPCRouter({
+  // Definición del procedimiento 'getMany' que obtiene múltiples videos
+  getMany: baseProcedure // Procedimiento protegido (requiere autenticación)
     .input(
       // Definición del esquema de entrada usando Zod
       z.object({
-        videoId: z.string().uuid(), // ID del video para el cual se buscan sugerencias
+        query: z.string().nullish(), // Consulta de búsqueda
+        categoryId: z.string().uuid().nullish(), // ID de la categoría (opcional)
         cursor: z
           .object({
             id: z.string().uuid(), // ID del último video cargado (para paginación)
@@ -25,25 +25,13 @@ export const suggestionsRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       // Extracción de parámetros
-      const { videoId, cursor, limit } = input;
-
-      const [existingVideo] = await db
-        .select()
-        .from(videos)
-        .where(eq(videos.id, videoId));
-
-      if (!existingVideo) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found",
-        });
-      }
+      const { cursor, limit, query, categoryId } = input;
 
       // Consulta a la base de datos
       const data = await db
         .select({
-          ...getTableColumns(videos), // Selecciona todas las columnas del esquema de videos
-          user: users, // Selecciona todas las columnas del esquema de usuarios
+          ...getTableColumns(videos), // Selecciona todas las columnas de la tabla videos
+          user: users,
           viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // Cuenta de vistas del video
           likeCount: db.$count(
             videoReactions,
@@ -61,14 +49,11 @@ export const suggestionsRouter = createTRPCRouter({
           ), // Cuenta de reacciones negativas
         })
         .from(videos)
-        .innerJoin(users, eq(users.id, videos.userId)) // Une con la tabla de usuarios
+        .innerJoin(users, eq(videos.userId, users.id))
         .where(
           and(
-            not(eq(videos.id, existingVideo.id)), // Excluir el video actual de las sugerencias
-            eq(videos.visibility, "public"), // Solo videos públicos
-            existingVideo.categoryId
-              ? eq(videos.categoryId, existingVideo.categoryId) // Si hay categoría, filtrar por ella para los videos de sugerencias
-              : undefined,
+            ilike(videos.title, `%${query}%`), // Filtrar por título que contenga la consulta
+            categoryId ? eq(videos.categoryId, categoryId) : undefined, // Filtrar por categoría si se proporciona
             cursor
               ? or(
                   // Si hay cursor, aplicar lógica de paginación

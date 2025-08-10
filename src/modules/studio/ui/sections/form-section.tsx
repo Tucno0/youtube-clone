@@ -58,6 +58,7 @@ import { THUMNAIL_FALLBACK } from "@/modules/videos/constants";
 import { ThumbnailUploadModal } from "../components/thumbnail-upload-modal";
 import { ThumbnailGenerateModal } from "../components/thumbnail-generate-modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { APP_URL } from "@/constants";
 
 interface FormSectionProps {
   videoId: string;
@@ -177,6 +178,18 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
     },
   });
 
+  const revalidate = trpc.videos.revalidate.useMutation({
+    onSuccess: () => {
+      utils.studio.getMany.invalidate();
+      utils.studio.getOne.invalidate({ id: videoId });
+      toast.success("Video revalidated");
+    },
+
+    onError: () => {
+      toast.error("Something went wrong");
+    },
+  });
+
   const restoreThumbnail = trpc.videos.restoreThumbnail.useMutation({
     onSuccess: () => {
       utils.studio.getMany.invalidate();
@@ -224,9 +237,7 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
   };
 
   // TODO: Change if deploying outside of Vercel
-  const fullUrl = `${
-    process.env.VERCEL_URL || "http://localhost:3000"
-  }/videos/${video.id}`;
+  const fullUrl = `${APP_URL || "http://localhost:3000"}/videos/${video.id}`;
 
   const [isCopied, setIsCopied] = useState(false);
 
@@ -272,7 +283,7 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                 Save
               </Button>
 
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant={"ghost"} size={"icon"}>
                     <MoreVerticalIcon />
@@ -280,6 +291,13 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => revalidate.mutate({ id: video.id })}
+                  >
+                    <RotateCcwIcon className="size-4 mr-2" />
+                    Revalidate
+                  </DropdownMenuItem>
+
                   <DropdownMenuItem
                     onClick={() => remove.mutate({ id: video.id })}
                   >
