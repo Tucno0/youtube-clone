@@ -16,7 +16,16 @@ import {
   protectedProcedure,
 } from "@/trpc/init"; // Importa utilidades de tRPC
 import { TRPCError } from "@trpc/server";
-import { and, eq, getTableColumns, inArray, isNotNull } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  lt,
+  or,
+} from "drizzle-orm";
 import { UTApi } from "uploadthing/server";
 import { z } from "zod";
 
@@ -325,6 +334,98 @@ export const videosRouter = createTRPCRouter({
       return workflowRunId;
     }),
 
+  getManySubscribed: protectedProcedure
+    .input(
+      // Definición del esquema de entrada usando Zod
+      z.object({
+        cursor: z
+          .object({
+            id: z.string().uuid(), // ID del último video cargado (para paginación)
+            updatedAt: z.date(), // Fecha de actualización del último video
+          })
+          .nullish(), // El cursor es opcional
+        limit: z.number().min(1).max(100), // Límite de resultados por consulta
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      // Extracción de parámetros
+      const { cursor, limit } = input;
+      const { id: userId } = ctx.user;
+
+      const viewerSubscriptions = db.$with("viewer_subscriptions").as(
+        db
+          .select({
+            userId: subscriptions.creatorId,
+          })
+          .from(subscriptions)
+          .where(eq(subscriptions.viewerId, userId))
+      );
+
+      // Consulta a la base de datos
+      const data = await db
+        .with(viewerSubscriptions)
+        .select({
+          ...getTableColumns(videos), // Selecciona todas las columnas de la tabla videos
+          user: users,
+          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // Cuenta de vistas del video
+          likeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "like")
+            )
+          ), // Cuenta de reacciones positivas
+          dislikeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "dislike")
+            )
+          ), // Cuenta de reacciones negativas
+        })
+        .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(
+          viewerSubscriptions,
+          eq(viewerSubscriptions.userId, users.id)
+        )
+        .where(
+          and(
+            eq(videos.visibility, "public"), // Solo videos públicos
+            cursor
+              ? or(
+                  // Si hay cursor, aplicar lógica de paginación
+                  lt(videos.updatedAt, cursor.updatedAt), // Videos más antiguos que el cursor
+                  and(
+                    eq(videos.updatedAt, cursor.updatedAt), // O videos con la misma fecha
+                    lt(videos.id, cursor.id) // pero ID menor
+                  )
+                )
+              : undefined
+          )
+        )
+        .orderBy(desc(videos.updatedAt), desc(videos.id)) // Ordenar por fecha de actualización y ID descendente
+        .limit(limit + 1); // Obtener un elemento extra para saber si hay más páginas
+
+      const hasMore = data.length > limit; // Verificar si hay más páginas
+
+      const items = hasMore ? data.slice(0, -1) : data; // Eliminar el elemento extra si hay más páginas
+
+      const lastItem = items[items.length - 1]; // Obtener el último elemento
+      const nextCursor = hasMore // Si hay más páginas, crear cursor con el último elemento
+        ? {
+            id: lastItem.id,
+            updatedAt: lastItem.updatedAt,
+          } // Crear cursor con el último elemento
+        : null; // No hay más páginas
+
+      // Retornar resultados y cursor
+      return {
+        items,
+        nextCursor,
+      };
+    }),
+
   //* Public procedures
   getOne: baseProcedure // Obtener un video por ID
     .input(z.object({ id: z.string().uuid() }))
@@ -410,5 +511,166 @@ export const videosRouter = createTRPCRouter({
       }
 
       return existingVideo;
+    }),
+
+  getMany: baseProcedure
+    .input(
+      // Definición del esquema de entrada usando Zod
+      z.object({
+        categoryId: z.string().uuid().nullish(), // ID de la categoría (opcional)
+        cursor: z
+          .object({
+            id: z.string().uuid(), // ID del último video cargado (para paginación)
+            updatedAt: z.date(), // Fecha de actualización del último video
+          })
+          .nullish(), // El cursor es opcional
+        limit: z.number().min(1).max(100), // Límite de resultados por consulta
+      })
+    )
+    .query(async ({ input }) => {
+      // Extracción de parámetros
+      const { cursor, limit, categoryId } = input;
+
+      // Consulta a la base de datos
+      const data = await db
+        .select({
+          ...getTableColumns(videos), // Selecciona todas las columnas de la tabla videos
+          user: users,
+          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // Cuenta de vistas del video
+          likeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "like")
+            )
+          ), // Cuenta de reacciones positivas
+          dislikeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "dislike")
+            )
+          ), // Cuenta de reacciones negativas
+        })
+        .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id))
+        .where(
+          and(
+            eq(videos.visibility, "public"), // Solo videos públicos
+            categoryId ? eq(videos.categoryId, categoryId) : undefined, // Filtrar por categoría si se proporciona
+            cursor
+              ? or(
+                  // Si hay cursor, aplicar lógica de paginación
+                  lt(videos.updatedAt, cursor.updatedAt), // Videos más antiguos que el cursor
+                  and(
+                    eq(videos.updatedAt, cursor.updatedAt), // O videos con la misma fecha
+                    lt(videos.id, cursor.id) // pero ID menor
+                  )
+                )
+              : undefined
+          )
+        )
+        .orderBy(desc(videos.updatedAt), desc(videos.id)) // Ordenar por fecha de actualización y ID descendente
+        .limit(limit + 1); // Obtener un elemento extra para saber si hay más páginas
+
+      const hasMore = data.length > limit; // Verificar si hay más páginas
+
+      const items = hasMore ? data.slice(0, -1) : data; // Eliminar el elemento extra si hay más páginas
+
+      const lastItem = items[items.length - 1]; // Obtener el último elemento
+      const nextCursor = hasMore // Si hay más páginas, crear cursor con el último elemento
+        ? {
+            id: lastItem.id,
+            updatedAt: lastItem.updatedAt,
+          } // Crear cursor con el último elemento
+        : null; // No hay más páginas
+
+      // Retornar resultados y cursor
+      return {
+        items,
+        nextCursor,
+      };
+    }),
+
+  getManyTrending: baseProcedure
+    .input(
+      // Definición del esquema de entrada usando Zod
+      z.object({
+        cursor: z
+          .object({
+            id: z.string().uuid(), // ID del último video cargado (para paginación)
+            viewCount: z.number(), // Contador de vistas
+          })
+          .nullish(), // El cursor es opcional
+        limit: z.number().min(1).max(100), // Límite de resultados por consulta
+      })
+    )
+    .query(async ({ input }) => {
+      // Extracción de parámetros
+      const { cursor, limit } = input;
+
+      const viewCountSubquery = db.$count(
+        videoViews,
+        eq(videoViews.videoId, videos.id)
+      );
+
+      // Consulta a la base de datos
+      const data = await db
+        .select({
+          ...getTableColumns(videos), // Selecciona todas las columnas de la tabla videos
+          user: users,
+          viewCount: viewCountSubquery, // Cuenta de vistas del video
+          likeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "like")
+            )
+          ), // Cuenta de reacciones positivas
+          dislikeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "dislike")
+            )
+          ), // Cuenta de reacciones negativas
+        })
+        .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id))
+        .where(
+          and(
+            eq(videos.visibility, "public"), // Solo videos públicos
+            cursor
+              ? or(
+                  // Si hay cursor, aplicar lógica de paginación
+                  lt(viewCountSubquery, cursor.viewCount), // Se compara la cantidad de vistas con el cursor
+                  and(
+                    eq(viewCountSubquery, cursor.viewCount), // Se compara la cantidad de vistas con el cursor
+                    lt(videos.id, cursor.id) // pero ID menor
+                  )
+                )
+              : undefined
+          )
+        )
+        .orderBy(desc(viewCountSubquery), desc(videos.id)) // Ordenar por cantidad de vistas y ID descendente
+        .limit(limit + 1); // Obtener un elemento extra para saber si hay más páginas
+
+      const hasMore = data.length > limit; // Verificar si hay más páginas
+
+      const items = hasMore ? data.slice(0, -1) : data; // Eliminar el elemento extra si hay más páginas
+
+      const lastItem = items[items.length - 1]; // Obtener el último elemento
+      const nextCursor = hasMore // Si hay más páginas, crear cursor con el último elemento
+        ? {
+            id: lastItem.id,
+            viewCount: lastItem.viewCount,
+          } // Crear cursor con el último elemento
+        : null; // No hay más páginas
+
+      // Retornar resultados y cursor
+      return {
+        items,
+        nextCursor,
+      };
     }),
 });

@@ -52,6 +52,7 @@ export const searchRouter = createTRPCRouter({
         .innerJoin(users, eq(videos.userId, users.id))
         .where(
           and(
+            eq(videos.visibility, "public"), // Solo videos públicos
             ilike(videos.title, `%${query}%`), // Filtrar por título que contenga la consulta
             categoryId ? eq(videos.categoryId, categoryId) : undefined, // Filtrar por categoría si se proporciona
             cursor
