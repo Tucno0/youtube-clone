@@ -2,6 +2,9 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { HomeNavbar } from "../components/home-navbar";
 import { HomeSidebar } from "../components/home-sidebar";
 
+// TODO: Confirm this is needed or not
+export const dynamic = "force-dynamic"; // This page should always be rendered on the server
+
 interface HomeLayoutProps {
   children: React.ReactNode;
 }

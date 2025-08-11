@@ -1,5 +1,5 @@
 import { CategoriesSection } from "../sections/categories-section";
-import ResultsSection from "../sections/results-section";
+import { ResultsSection } from "../sections/results-section";
 
 interface SearchViewProps {
   query: string | undefined;
