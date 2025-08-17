@@ -54,7 +54,7 @@ import Link from "next/link";
 import { snakeCaseToTitle } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { THUMNAIL_FALLBACK } from "@/modules/videos/constants";
+import { THUMBNAIL_FALLBACK } from "@/modules/videos/constants";
 import { ThumbnailUploadModal } from "../components/thumbnail-upload-modal";
 import { ThumbnailGenerateModal } from "../components/thumbnail-generate-modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -403,7 +403,7 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                     <FormControl>
                       <div className="p-0.5 border-dashed border-neutral-400 relative h-[84px] w-[153px] group">
                         <Image
-                          src={video.thumbnailUrl ?? THUMNAIL_FALLBACK}
+                          src={video.thumbnailUrl ?? THUMBNAIL_FALLBACK}
                           className="object-cover"
                           layout="fill"
                           objectFit="cover"
