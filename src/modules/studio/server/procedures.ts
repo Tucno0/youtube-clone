@@ -1,9 +1,15 @@
 // Importaciones necesarias
 import { db } from "@/db"; // Importa la instancia de la base de datos
-import { videos } from "@/db/schema"; // Importa el esquema de videos
+import {
+  comments,
+  users,
+  videoReactions,
+  videos,
+  videoViews,
+} from "@/db/schema"; // Importa el esquema de videos
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init"; // Importa utilidades de tRPC
 import { TRPCError } from "@trpc/server";
-import { eq, and, or, lt, desc } from "drizzle-orm"; // Operadores de consulta de DrizzleORM
+import { eq, and, or, lt, desc, getTableColumns } from "drizzle-orm"; // Operadores de consulta de DrizzleORM
 import { z } from "zod"; // Librería para validación de esquemas
 
 // Creación del router de studio con tRPC
@@ -62,8 +68,21 @@ export const studioRouter = createTRPCRouter({
 
       // Consulta a la base de datos
       const data = await db
-        .select()
+        .select({
+          ...getTableColumns(videos),
+          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          commentCount: db.$count(comments, eq(comments.videoId, videos.id)),
+          likeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.type, "like"),
+              eq(videoReactions.videoId, videos.id)
+            )
+          ),
+          user: users,
+        })
         .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id))
         .where(
           and(
             eq(videos.userId, userId), // Filtrar por el usuario actual

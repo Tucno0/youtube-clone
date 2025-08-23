@@ -4,7 +4,7 @@ import { HydrateClient, trpc } from "@/trpc/server";
 
 export const dynamic = "force-dynamic"; // This page should always be rendered on the server
 
-export default async function StudioPage() {
+const StudioPage = () => {
   void trpc.studio.getMany.prefetchInfinite({
     limit: DEFAULT_LIMIT,
   });
@@ -14,4 +14,6 @@ export default async function StudioPage() {
       <StudioView />
     </HydrateClient>
   );
-}
+};
+
+export default StudioPage;

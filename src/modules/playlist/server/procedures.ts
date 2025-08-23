@@ -46,162 +46,6 @@ export const playlistsRouter = createTRPCRouter({
       return createdPlaylist;
     }),
 
-  addVideo: protectedProcedure
-    .input(
-      z.object({
-        playlistId: z.string().uuid(),
-        videoId: z.string().uuid(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const { playlistId, videoId } = input;
-      const { id: userId } = ctx.user;
-
-      const [existingPlaylist] = await db
-        .select()
-        .from(playlists)
-        .where(and(eq(playlists.id, playlistId), eq(playlists.userId, userId)));
-
-      if (!existingPlaylist) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Playlist not found",
-        });
-      }
-
-      if (existingPlaylist.userId !== userId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have permission to modify this playlist",
-        });
-      }
-
-      const [existingVideo] = await db
-        .select()
-        .from(videos)
-        .where(eq(videos.id, videoId));
-
-      if (!existingVideo) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found",
-        });
-      }
-
-      const [existingPlaylistVideo] = await db
-        .select()
-        .from(playlistVideos)
-        .where(
-          and(
-            eq(playlistVideos.playlistId, playlistId),
-            eq(playlistVideos.videoId, videoId)
-          )
-        );
-
-      if (existingPlaylistVideo) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Video already added to playlist",
-        });
-      }
-
-      const [createdPlaylistVideo] = await db
-        .insert(playlistVideos)
-        .values({
-          playlistId,
-          videoId,
-        })
-        .returning();
-
-      if (!createdPlaylistVideo) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Failed to add video to playlist",
-        });
-      }
-
-      return createdPlaylistVideo;
-    }),
-
-  removeVideo: protectedProcedure
-    .input(
-      z.object({
-        playlistId: z.string().uuid(),
-        videoId: z.string().uuid(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const { playlistId, videoId } = input;
-      const { id: userId } = ctx.user;
-
-      const [existingPlaylist] = await db
-        .select()
-        .from(playlists)
-        .where(and(eq(playlists.id, playlistId), eq(playlists.userId, userId)));
-
-      if (!existingPlaylist) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Playlist not found",
-        });
-      }
-
-      if (existingPlaylist.userId !== userId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You do not have permission to modify this playlist",
-        });
-      }
-
-      const [existingVideo] = await db
-        .select()
-        .from(videos)
-        .where(eq(videos.id, videoId));
-
-      if (!existingVideo) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found",
-        });
-      }
-
-      const [existingPlaylistVideo] = await db
-        .select()
-        .from(playlistVideos)
-        .where(
-          and(
-            eq(playlistVideos.playlistId, playlistId),
-            eq(playlistVideos.videoId, videoId)
-          )
-        );
-
-      if (!existingPlaylistVideo) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Video not found in playlist",
-        });
-      }
-
-      const [deletedPlaylistVideo] = await db
-        .delete(playlistVideos)
-        .where(
-          and(
-            eq(playlistVideos.playlistId, playlistId),
-            eq(playlistVideos.videoId, videoId)
-          )
-        )
-        .returning();
-
-      if (!deletedPlaylistVideo) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Failed to remove video from playlist",
-        });
-      }
-
-      return deletedPlaylistVideo;
-    }),
-
   getMany: protectedProcedure
     .input(
       // Definición del esquema de entrada usando Zod
@@ -542,5 +386,308 @@ export const playlistsRouter = createTRPCRouter({
         items,
         nextCursor,
       };
+    }),
+
+  addVideo: protectedProcedure
+    .input(
+      z.object({
+        playlistId: z.string().uuid(),
+        videoId: z.string().uuid(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { playlistId, videoId } = input;
+      const { id: userId } = ctx.user;
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.id, playlistId), eq(playlists.userId, userId)));
+
+      if (!existingPlaylist) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Playlist not found",
+        });
+      }
+
+      if (existingPlaylist.userId !== userId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to modify this playlist",
+        });
+      }
+
+      const [existingVideo] = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, videoId));
+
+      if (!existingVideo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Video not found",
+        });
+      }
+
+      const [existingPlaylistVideo] = await db
+        .select()
+        .from(playlistVideos)
+        .where(
+          and(
+            eq(playlistVideos.playlistId, playlistId),
+            eq(playlistVideos.videoId, videoId)
+          )
+        );
+
+      if (existingPlaylistVideo) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Video already added to playlist",
+        });
+      }
+
+      const [createdPlaylistVideo] = await db
+        .insert(playlistVideos)
+        .values({
+          playlistId,
+          videoId,
+        })
+        .returning();
+
+      if (!createdPlaylistVideo) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Failed to add video to playlist",
+        });
+      }
+
+      return createdPlaylistVideo;
+    }),
+
+  removeVideo: protectedProcedure
+    .input(
+      z.object({
+        playlistId: z.string().uuid(),
+        videoId: z.string().uuid(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { playlistId, videoId } = input;
+      const { id: userId } = ctx.user;
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.id, playlistId), eq(playlists.userId, userId)));
+
+      if (!existingPlaylist) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Playlist not found",
+        });
+      }
+
+      if (existingPlaylist.userId !== userId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to modify this playlist",
+        });
+      }
+
+      const [existingVideo] = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, videoId));
+
+      if (!existingVideo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Video not found",
+        });
+      }
+
+      const [existingPlaylistVideo] = await db
+        .select()
+        .from(playlistVideos)
+        .where(
+          and(
+            eq(playlistVideos.playlistId, playlistId),
+            eq(playlistVideos.videoId, videoId)
+          )
+        );
+
+      if (!existingPlaylistVideo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Video not found in playlist",
+        });
+      }
+
+      const [deletedPlaylistVideo] = await db
+        .delete(playlistVideos)
+        .where(
+          and(
+            eq(playlistVideos.playlistId, playlistId),
+            eq(playlistVideos.videoId, videoId)
+          )
+        )
+        .returning();
+
+      if (!deletedPlaylistVideo) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Failed to remove video from playlist",
+        });
+      }
+
+      return deletedPlaylistVideo;
+    }),
+
+  getVideos: protectedProcedure
+    .input(
+      // Definición del esquema de entrada usando Zod
+      z.object({
+        playlistId: z.string().uuid(), // ID de la lista de reproducción para la que se quieren obtener los videos
+        cursor: z
+          .object({
+            id: z.string().uuid(), // ID del último video cargado (para paginación)
+            updatedAt: z.date(), // Fecha de actualización del último video
+          })
+          .nullish(), // El cursor es opcional
+        limit: z.number().min(1).max(100), // Límite de resultados por consulta
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      // Extracción de parámetros
+      const { cursor, limit, playlistId } = input;
+      const { id: userId } = ctx.user;
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.id, playlistId), eq(playlists.userId, userId)));
+
+      if (!existingPlaylist) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Playlist not found",
+        });
+      }
+
+      const videosFromPlaylist = db.$with("playlist_videos").as(
+        db
+          .select({
+            videoId: playlistVideos.videoId,
+          })
+          .from(playlistVideos)
+          .where(eq(playlistVideos.playlistId, playlistId))
+      );
+
+      // Consulta a la base de datos
+      const data = await db
+        .with(videosFromPlaylist)
+        .select({
+          ...getTableColumns(videos), // Selecciona todas las columnas de la tabla videos
+          user: users,
+          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // Cuenta de vistas del video
+          likeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "like")
+            )
+          ), // Cuenta de reacciones positivas
+          dislikeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "dislike")
+            )
+          ), // Cuenta de reacciones negativas
+        })
+        .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id)) // Une con la tabla de usuarios
+        .innerJoin(
+          videosFromPlaylist,
+          eq(videos.id, videosFromPlaylist.videoId)
+        ) // Une con las vistas del usuario
+        .where(
+          and(
+            eq(videos.visibility, "public"), // Solo videos públicos
+            cursor
+              ? or(
+                  // Si hay cursor, aplicar lógica de paginación
+                  lt(videos.updatedAt, cursor.updatedAt), // Videos más antiguos que el cursor
+                  and(
+                    eq(videos.updatedAt, cursor.updatedAt), // O videos con la misma fecha
+                    lt(videos.id, cursor.id) // pero ID menor
+                  )
+                )
+              : undefined
+          )
+        )
+        .orderBy(desc(videos.updatedAt), desc(videos.id)) // Ordenar por fecha de visualización y ID descendente
+        .limit(limit + 1); // Obtener un elemento extra para saber si hay más páginas
+
+      const hasMore = data.length > limit; // Verificar si hay más páginas
+
+      const items = hasMore ? data.slice(0, -1) : data; // Eliminar el elemento extra si hay más páginas
+
+      const lastItem = items[items.length - 1]; // Obtener el último elemento
+      const nextCursor = hasMore // Si hay más páginas, crear cursor con el último elemento
+        ? {
+            id: lastItem.id,
+            updatedAt: lastItem.updatedAt,
+          } // Crear cursor con el último elemento
+        : null; // No hay más páginas
+
+      // Retornar resultados y cursor
+      return {
+        items,
+        nextCursor,
+      };
+    }),
+
+  getOne: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ input, ctx }) => {
+      const { id } = input;
+      const { id: userId } = ctx.user;
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.id, id), eq(playlists.userId, userId)));
+
+      if (!existingPlaylist) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Playlist not found",
+        });
+      }
+
+      return existingPlaylist;
+    }),
+
+  remove: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ input, ctx }) => {
+      const { id } = input;
+      const { id: userId } = ctx.user;
+
+      const [deletedPlaylist] = await db
+        .delete(playlists)
+        .where(and(eq(playlists.id, id), eq(playlists.userId, userId)))
+        .returning();
+
+      if (!deletedPlaylist) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Playlist not found",
+        });
+      }
+
+      return deletedPlaylist;
     }),
 });
