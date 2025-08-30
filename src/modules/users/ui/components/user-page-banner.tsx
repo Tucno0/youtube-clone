@@ -18,7 +18,6 @@ export const UserPageBanner = ({ user }: UserPageBannerProps) => {
 
   return (
     <div className="relative group">
-      {/* TODO: Add upload banner modal */}
       <BannerUploadModal
         userId={user.id}
         isOpen={isBannerUploadModalOpen}

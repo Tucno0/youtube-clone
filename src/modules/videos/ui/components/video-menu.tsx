@@ -23,7 +23,6 @@ interface VideoMenuProps {
   onRemove?: () => void;
 }
 
-// TODO: implement whats left
 export const VideoMenu = ({
   videoId,
   variant = "ghost",
