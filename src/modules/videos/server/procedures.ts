@@ -518,6 +518,7 @@ export const videosRouter = createTRPCRouter({
       // Definición del esquema de entrada usando Zod
       z.object({
         categoryId: z.string().uuid().nullish(), // ID de la categoría (opcional)
+        userId: z.string().uuid().nullish(), // ID del usuario (opcional)
         cursor: z
           .object({
             id: z.string().uuid(), // ID del último video cargado (para paginación)
@@ -529,7 +530,7 @@ export const videosRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       // Extracción de parámetros
-      const { cursor, limit, categoryId } = input;
+      const { cursor, limit, categoryId, userId } = input;
 
       // Consulta a la base de datos
       const data = await db
@@ -557,6 +558,7 @@ export const videosRouter = createTRPCRouter({
         .where(
           and(
             eq(videos.visibility, "public"), // Solo videos públicos
+            userId ? eq(videos.userId, userId) : undefined, // Filtrar por usuario si se proporciona
             categoryId ? eq(videos.categoryId, categoryId) : undefined, // Filtrar por categoría si se proporciona
             cursor
               ? or(
