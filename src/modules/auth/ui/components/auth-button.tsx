@@ -14,12 +14,14 @@ export const AuthButton = () => {
     <>
       <SignedIn>
         {pathname !== "/studio" && (
-          <Button asChild variant="secondary">
-            <Link href="/studio">
-              <ClapperboardIcon className="size-4" />
-              Studio
-            </Link>
-          </Button>
+          <div className="hidden md:block">
+            <Button asChild variant="secondary">
+              <Link prefetch href="/studio">
+                <ClapperboardIcon className="size-4" />
+                Studio
+              </Link>
+            </Button>
+          </div>
         )}
 
         <UserButton>
