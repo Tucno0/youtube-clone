@@ -91,6 +91,65 @@ export const ourFileRouter = {
       // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
       return { uploadedBy: metadata.user.id };
     }),
+  bannerUploader: f({
+    image: {
+      maxFileSize: "4MB",
+      maxFileCount: 1,
+    },
+  })
+    // Set permissions and file types for this FileRoute
+    .middleware(async () => {
+      // This code runs on your server before upload
+      const { userId: clerkUserId } = await auth();
+
+      // If you throw, the user will not be able to upload
+      if (!clerkUserId) throw new UploadThingError("Unauthorized");
+
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.clerkId, clerkUserId));
+
+      if (!existingUser) throw new UploadThingError("Unauthorized");
+
+      // Si el usuario tiene una bannerKey
+      if (existingUser.bannerKey) {
+        const utaApi = new UTApi();
+
+        // Eliminar el banner existente
+        await utaApi.deleteFiles(existingUser.bannerKey);
+
+        // Eliminar la referencia en la base de datos
+        await db
+          .update(users)
+          .set({
+            bannerKey: null,
+            bannerUrl: null,
+          })
+          .where(and(eq(users.id, existingUser.id)));
+      }
+
+      // Retornar el userId
+      return { userId: existingUser.id };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      // This code RUNS ON YOUR SERVER after upload
+      // console.log("Upload complete for userId:", metadata.userId);
+      // console.log("file url", file.url);
+
+      // Actualizar la base de datos con la nueva información del banner
+      // Se ejecuta después de que se completa la carga
+      await db
+        .update(users)
+        .set({
+          bannerUrl: file.ufsUrl,
+          bannerKey: file.key,
+        })
+        .where(and(eq(users.id, metadata.userId)));
+
+      // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
+      return { uploadedBy: metadata.userId };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;
